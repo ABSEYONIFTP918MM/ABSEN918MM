@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>ABSEN PERSONEL DIGITAL</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+
+<style>
+
+body{
+font-family:'Poppins',sans-serif;
+margin:0;
+background:url("background.jpg") no-repeat center center fixed;
+background-size:cover;
+color:white;
+}
+
+body::before{
+content:"";
+position:fixed;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.55);
+z-index:-1;
+}
+
+.header{text-align:center;padding:20px;font-size:22px;font-weight:bold;}
+.jam{text-align:center;margin-bottom:10px;}
+
+.container{
+background:rgba(255,255,255,0.95);
+color:black;
+max-width:1100px;
+margin:auto;
+border-radius:15px;
+padding:20px;
+box-shadow:0 10px 30px rgba(0,0,0,0.5);
+}
+
+input,select{
+width:100%;
+padding:12px;
+margin:6px 0;
+border-radius:8px;
+border:1px solid #ccc;
+}
+
+button{
+width:100%;
+padding:14px;
+border:none;
+border-radius:10px;
+background:#0b5e2a;
+color:white;
+font-size:16px;
+cursor:pointer;
+margin-top:5px;
+}
+
+.rekap{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px;}
+.box{flex:1;background:#0b5e2a;color:white;padding:12px;border-radius:10px;text-align:left;min-width:220px;}
+
+.table-wrapper{overflow-x:auto;margin-top:15px;}
+table{width:100%;border-collapse:collapse;}
+th,td{border:1px solid #ddd;padding:8px;text-align:center;}
+th{background:#0b5e2a;color:white;}
+
+.export{background:#1f6feb;}
+.hapus{background:red;}
+.adminbtn{background:#444;}
+
+</style>
+</head>
+
+<body>
+
+<div class="header">ABSEN PERSONEL DIGITAL</div>
+<div class="jam" id="jam"></div>
+
+<div class="container">
+
+<form id="form">
+
+<input id="nrp" placeholder="NRP" required>
+<input id="nama" placeholder="Nama Personel" required>
+
+<select id="kompi" required>
+<option value="">Pilih Kompi</option>
+<option>Kompi Markas</option>
+<option>Kompi Senapan A</option>
+<option>Kompi Senapan B</option>
+<option>Kompi Senapan C</option>
+<option>Kompi Bantuan</option>
+<option>Kompi Peternakan</option>
+<option>Kompi Pertanian</option>
+<option>Kompi Zeni</option>
+<option>Kompi Kesehatan</option>
+</select>
+
+<select id="status" required>
+<option value="">Status</option>
+<option>Hadir</option>
+<option>Izin</option>
+<option>Sakit</option>
+<option>Dinas Luar</option>
+<option>Dinas Dalam</option>
+</select>
+
+<button type="submit">ABSEN SEKARANG</button>
+<button type="button" class="adminbtn" onclick="loginAdmin()">MODE ADMIN</button>
+
+</form>
+
+<!-- ================= ADMIN AREA ================= -->
+<div id="adminArea" style="display:none;">
+
+<div class="rekap" id="rekap"></div>
+
+<div class="table-wrapper">
+<table>
+<thead>
+<tr>
+<th>NRP</th>
+<th>Nama</th>
+<th>Kompi</th>
+<th>Status</th>
+<th>Jam</th>
+</tr>
+</thead>
+<tbody id="tabel"></tbody>
+</table>
+</div>
+
+<button class="export" onclick="exportCSV()">EXPORT CSV</button>
+<button class="hapus" onclick="hapus()">HAPUS DATA</button>
+
+</div>
+
+</div>
+
+<script>
+
+/* JAM */
+setInterval(()=>{
+document.getElementById("jam").innerText =
+new Date().toLocaleString("id-ID");
+},1000);
+
+/* TOTAL PERSONEL PER KOMPI */
+const TOTAL_KOMPI={
+"Kompi Markas":20,
+"Kompi Senapan A":30,
+"Kompi Senapan B":30,
+"Kompi Senapan C":30,
+"Kompi Bantuan":25,
+"Kompi Peternakan":15,
+"Kompi Pertanian":15,
+"Kompi Zeni":20,
+"Kompi Kesehatan":12
+};
+
+const ADMIN_PASS="291226";
+
+/* SESSION ADMIN */
+if(sessionStorage.getItem("adminLogin")==="true"){
+document.getElementById("adminArea").style.display="block";
+}
+
+/* DEVICE ID */
+function deviceID(){
+if(!localStorage.getItem("deviceID")){
+localStorage.setItem("deviceID",
+Math.random().toString(36).substr(2,12));
+}
+return localStorage.getItem("deviceID");
+}
+
+/* ABSEN */
+form.addEventListener("submit",e=>{
+e.preventDefault();
+
+const nrp=document.getElementById("nrp").value.trim();
+const nama=document.getElementById("nama").value.trim();
+const kompi=document.getElementById("kompi").value;
+const status=document.getElementById("status").value;
+
+let now=new Date();
+
+if(now.getHours()>10 || (now.getHours()==10 && now.getMinutes()>0)){
+alert("Absen ditutup (10:00)");
+return;
+}
+
+let hari=now.toLocaleDateString("id-ID");
+let data=JSON.parse(localStorage.getItem("absen"))||[];
+let dev=deviceID();
+
+if(data.find(d=>d.device===dev && d.hari===hari)){
+alert("HP ini sudah absen!");
+return;
+}
+
+if(data.find(d=>d.nrp===nrp && d.hari===hari)){
+alert("NRP sudah digunakan!");
+return;
+}
+
+data.push({
+nrp,nama,kompi,status,
+jam:now.toLocaleTimeString("id-ID"),
+hari,device:dev
+});
+
+localStorage.setItem("absen",JSON.stringify(data));
+
+form.reset();
+updateRealtime();
+
+});
+
+/* LOGIN ADMIN */
+function loginAdmin(){
+let pass=prompt("Password Admin");
+if(pass===ADMIN_PASS){
+sessionStorage.setItem("adminLogin","true");
+document.getElementById("adminArea").style.display="block";
+tampil();
+alert("MODE ADMIN AKTIF");
+}else{
+alert("Password Salah");
+}
+}
+
+/* TAMPIL DATA + REKAP KOMPI */
+function tampil(){
+
+let data=JSON.parse(localStorage.getItem("absen"))||[];
+
+tabel.innerHTML="";
+rekap.innerHTML="";
+
+let kompiRekap={};
+
+Object.keys(TOTAL_KOMPI).forEach(k=>{
+kompiRekap[k]={
+total:TOTAL_KOMPI[k],
+hadir:0,izin:0,sakit:0,dl:0,dd:0
+};
+});
+
+data.forEach(d=>{
+
+if(d.status==="Hadir")kompiRekap[d.kompi].hadir++;
+if(d.status==="Izin")kompiRekap[d.kompi].izin++;
+if(d.status==="Sakit")kompiRekap[d.kompi].sakit++;
+if(d.status==="Dinas Luar")kompiRekap[d.kompi].dl++;
+if(d.status==="Dinas Dalam")kompiRekap[d.kompi].dd++;
+
+tabel.innerHTML+=`
+<tr>
+<td>${d.nrp}</td>
+<td>${d.nama}</td>
+<td>${d.kompi}</td>
+<td>${d.status}</td>
+<td>${d.jam}</td>
+</tr>`;
+});
+
+/* BOX REKAP KOMPI */
+Object.keys(kompiRekap).forEach(k=>{
+
+let r=kompiRekap[k];
+let sudah=r.hadir+r.izin+r.sakit+r.dl+r.dd;
+let belum=r.total-sudah;
+
+rekap.innerHTML+=`
+<div class="box">
+<b>${k}</b><br><br>
+
+Total Personel : ${r.total}<br>
+Sudah Absen : ${sudah}<br>
+Belum Absen : ${belum}<hr>
+
+Hadir : ${r.hadir}<br>
+Izin : ${r.izin}<br>
+Sakit : ${r.sakit}<br>
+DL : ${r.dl}<br>
+DD : ${r.dd}
+</div>`;
+});
+
+}
+
+/* REALTIME */
+function updateRealtime(){
+if(sessionStorage.getItem("adminLogin")==="true"){
+tampil();
+}
+}
+window.addEventListener("storage",updateRealtime);
+
+/* EXPORT CSV */
+function exportCSV(){
+let pass=prompt("Password Admin");
+if(pass!==ADMIN_PASS)return;
+
+let data=JSON.parse(localStorage.getItem("absen"))||[];
+
+let csv="NRP,Nama,Kompi,Status,Jam,Hari\n";
+data.forEach(d=>{
+csv+=`${d.nrp},${d.nama},${d.kompi},${d.status},${d.jam},${d.hari}\n`;
+});
+
+let blob=new Blob([csv],{type:"text/csv"});
+let a=document.createElement("a");
+a.href=URL.createObjectURL(blob);
+a.download="ABSEN_PERSONEL.csv";
+a.click();
+}
+
+/* HAPUS DATA */
+function hapus(){
+let pass=prompt("Password Admin");
+if(pass!==ADMIN_PASS)return;
+
+if(confirm("Hapus semua data?")){
+localStorage.removeItem("absen");
+tampil();
+}
+}
+
+</script>
+</body>
+</html>
